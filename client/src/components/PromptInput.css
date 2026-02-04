@@ -1,0 +1,106 @@
+.prompt-input {
+  display: flex;
+  flex-direction: column;
+  padding: 1rem 1.5rem;
+  background: #111418;
+  border-top: 1px solid #1f2329;
+}
+
+.prompt-input h2 {
+  display: none;
+}
+
+.ai-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: #1a1d24;
+  border: 1px solid #2d3139;
+  border-radius: 6px;
+  margin-bottom: 0.75rem;
+  width: fit-content;
+}
+
+.ai-icon {
+  font-size: 0.875rem;
+}
+
+.ai-model {
+  font-size: 0.8125rem;
+  color: #9ca3af;
+  font-weight: 500;
+}
+
+.modification-badge {
+  font-size: 0.75rem;
+  color: #3b82f6;
+  background: rgba(59, 130, 246, 0.1);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  margin-left: 0.5rem;
+  font-weight: 500;
+}
+
+.prompt-input form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.prompt-input textarea {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  border: 1px solid #2d3139;
+  border-radius: 8px;
+  font-size: 0.9375rem;
+  font-family: inherit;
+  resize: none;
+  background: #1a1d24;
+  color: #e8eaed;
+  transition: border-color 0.2s;
+  min-height: 60px;
+  max-height: 200px;
+}
+
+.prompt-input textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  background: #1e2128;
+}
+
+.prompt-input textarea:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.prompt-input textarea::placeholder {
+  color: #6b7280;
+}
+
+.build-button {
+  padding: 0.625rem 1.25rem;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  align-self: flex-end;
+}
+
+.build-button:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.build-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+

@@ -1,0 +1,152 @@
+/* Assembly Section Styles */
+.assembly-section {
+  margin: 1.5rem 0;
+  padding: 1.25rem;
+  background: linear-gradient(135deg, #1f2937 0%, #16181d 100%);
+  border-radius: 8px;
+  border: 1px solid #2d3139;
+}
+
+.assembly-section h4 {
+  color: #ffb800;
+  margin: 0 0 1rem 0;
+  font-size: 0.95rem;
+}
+
+.assembly-overview {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.assembly-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.75rem 1.25rem;
+  background: rgba(255, 184, 0, 0.05);
+  border: 1px solid rgba(255, 184, 0, 0.2);
+  border-radius: 6px;
+}
+
+.assembly-stat strong {
+  font-size: 1.5rem;
+  color: #ffb800;
+  font-weight: 600;
+}
+
+.assembly-stat span {
+  font-size: 0.8rem;
+  color: #8b8d98;
+}
+
+.hardware-list,
+.tools-list,
+.assembly-instructions {
+  margin: 1rem 0;
+}
+
+.hardware-list strong,
+.tools-list strong,
+.assembly-instructions strong {
+  color: #e8eaed;
+  font-size: 0.9rem;
+  display: block;
+  margin-bottom: 0.75rem;
+}
+
+.hardware-list ul,
+.assembly-instructions ol {
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.hardware-list li,
+.assembly-instructions li {
+  color: #c9cccf;
+  font-size: 0.85rem;
+  margin: 0.5rem 0;
+  line-height: 1.5;
+}
+
+.tools-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.tool-badge {
+  padding: 0.4rem 0.8rem;
+  background: rgba(74, 158, 255, 0.1);
+  border: 1px solid rgba(74, 158, 255, 0.3);
+  border-radius: 15px;
+  font-size: 0.8rem;
+  color: #4a9eff;
+  text-transform: capitalize;
+}
+
+.assembly-part {
+  background: #1e2128 !important;
+  border: 1px solid #3a3d47 !important;
+  padding: 1rem !important;
+  margin: 0.75rem 0 !important;
+  border-radius: 6px !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+}
+
+.part-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.part-header strong {
+  color: #e8eaed;
+  font-size: 0.95rem;
+}
+
+.quantity-badge,
+.material-badge {
+  padding: 0.25rem 0.6rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.quantity-badge {
+  background: rgba(255, 184, 0, 0.15);
+  color: #ffb800;
+  border: 1px solid rgba(255, 184, 0, 0.3);
+}
+
+.material-badge {
+  background: rgba(74, 158, 255, 0.15);
+  color: #4a9eff;
+  border: 1px solid rgba(74, 158, 255, 0.3);
+}
+
+.part-files {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.part-files a {
+  padding: 0.5rem 0.75rem;
+  background: #16181d;
+  border: 1px solid #2d3139;
+  border-radius: 4px;
+  transition: all 0.2s;
+  display: block;
+}
+
+.part-files a:hover {
+  background: #1a1d24;
+  border-color: #4a9eff;
+}
