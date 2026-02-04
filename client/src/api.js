@@ -41,20 +41,21 @@ export async function chatWithEngineer(message, conversationHistory = [], curren
   }
 }
 
-export async function buildProduct(prompt, previousDesign = null) {
+export async function buildProduct(prompt, previousDesign = null, projectId = null) {
   try {
     if (previousDesign) {
       console.log('🔄 Including previous design for modification');
     }
-    
+
     const response = await fetch(`${API_BASE_URL}/build`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ 
+      body: JSON.stringify({
         prompt,
-        previousDesign 
+        previousDesign,
+        projectId
       }),
     });
 
@@ -103,4 +104,96 @@ export async function getBuildStatus(buildId) {
 
 export function getFileUrl(filePath) {
   return `http://localhost:3001/exports/${filePath}`;
+}
+
+export async function getAllProjects() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/projects`);
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Server error' }));
+      throw new Error(error.message || `Server returned ${response.status}`);
+    }
+
+    return response.json();
+  } catch (error) {
+    if (error.message.includes('fetch') ||
+        error.message.includes('Failed to fetch') ||
+        error.message.includes('NetworkError') ||
+        (error.name === 'TypeError' && error.message.includes('fetch'))) {
+      throw new Error('Cannot connect to server. Make sure the backend is running on port 3001.');
+    }
+    throw error;
+  }
+}
+
+export async function getProject(projectId) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/projects/${projectId}`);
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Server error' }));
+      throw new Error(error.message || `Server returned ${response.status}`);
+    }
+
+    return response.json();
+  } catch (error) {
+    if (error.message.includes('fetch') ||
+        error.message.includes('Failed to fetch') ||
+        error.message.includes('NetworkError') ||
+        (error.name === 'TypeError' && error.message.includes('fetch'))) {
+      throw new Error('Cannot connect to server. Make sure the backend is running on port 3001.');
+    }
+    throw error;
+  }
+}
+
+export async function createProject(name) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/projects`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ name }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Server error' }));
+      throw new Error(error.message || `Server returned ${response.status}`);
+    }
+
+    return response.json();
+  } catch (error) {
+    if (error.message.includes('fetch') ||
+        error.message.includes('Failed to fetch') ||
+        error.message.includes('NetworkError') ||
+        (error.name === 'TypeError' && error.message.includes('fetch'))) {
+      throw new Error('Cannot connect to server. Make sure the backend is running on port 3001.');
+    }
+    throw error;
+  }
+}
+
+export async function deleteProject(projectId) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/projects/${projectId}`, {
+      method: 'DELETE',
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Server error' }));
+      throw new Error(error.message || `Server returned ${response.status}`);
+    }
+
+    return response.json();
+  } catch (error) {
+    if (error.message.includes('fetch') ||
+        error.message.includes('Failed to fetch') ||
+        error.message.includes('NetworkError') ||
+        (error.name === 'TypeError' && error.message.includes('fetch'))) {
+      throw new Error('Cannot connect to server. Make sure the backend is running on port 3001.');
+    }
+    throw error;
+  }
 }

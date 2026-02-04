@@ -1,8 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import PromptInput from './components/PromptInput';
 import BuildStatus from './components/BuildStatus';
 import CanvasView from './components/CanvasView';
-import { buildProduct } from './api';
+import { buildProduct, getAllProjects, getProject, deleteProject } from './api';
 import './App.css';
 
 function App() {
@@ -13,8 +13,11 @@ function App() {
   const [assemblyFiles, setAssemblyFiles] = useState(null);
   const [messages, setMessages] = useState([]);
   const [currentDesign, setCurrentDesign] = useState(null);
+  const [currentProjectId, setCurrentProjectId] = useState(null);
+  const [projects, setProjects] = useState([]);
+  const [showProjects, setShowProjects] = useState(false);
   const [aiModel, setAiModel] = useState(process.env.REACT_APP_AI_MODEL_NAME || 'GPT-5.1-Codex');
-  const [chatWidth, setChatWidth] = useState(50); // percentage
+  const [chatWidth, setChatWidth] = useState(50);
   const [isDragging, setIsDragging] = useState(false);
   const messagesEndRef = useRef(null);
 
@@ -26,26 +29,145 @@ function App() {
     scrollToBottom();
   }, [messages]);
 
+  useEffect(() => {
+    loadProjects();
+  }, []);
+
+  const loadProjects = async () => {
+    try {
+      const response = await getAllProjects();
+      setProjects(response.projects || []);
+    } catch (error) {
+      console.error('Failed to load projects:', error);
+    }
+  };
+
+  const loadProject = async (projectId) => {
+    try {
+      const response = await getProject(projectId);
+      const { project, builds, messages: projectMessages } = response;
+
+      setCurrentProjectId(project.id);
+      setCurrentDesign(project.design_data);
+
+      const formattedMessages = projectMessages.map(msg => ({
+        id: msg.id,
+        type: msg.type,
+        content: msg.content,
+        timestamp: new Date(msg.created_at)
+      }));
+
+      if (builds.length > 0) {
+        const latestBuild = builds[0];
+        if (latestBuild.status === 'success') {
+          setResult({
+            design: latestBuild.design_data,
+            files: latestBuild.files,
+            component_models: latestBuild.component_models,
+            isAssembly: latestBuild.is_assembly,
+            aiModel: latestBuild.ai_model
+          });
+
+          if (latestBuild.is_assembly && latestBuild.files && Array.isArray(latestBuild.files)) {
+            const allStlUrls = [];
+            latestBuild.files.forEach(part => {
+              if (part.files) {
+                const stlFile = part.files.find(f => f.endsWith('.stl'));
+                if (stlFile) {
+                  const fileName = stlFile.split('/').pop();
+                  allStlUrls.push(`http://localhost:3001/exports/cad/${fileName}`);
+                }
+              }
+            });
+            setAssemblyFiles(allStlUrls);
+            if (allStlUrls.length > 0) {
+              setStlUrl(allStlUrls[0]);
+            }
+          } else if (latestBuild.files && latestBuild.files.stl) {
+            setAssemblyFiles(null);
+            const stlFileUrl = `http://localhost:3001${latestBuild.files.stl}`;
+            setStlUrl(stlFileUrl);
+          }
+        }
+
+        const buildMessages = builds.map((build, idx) => ({
+          id: `build-${build.id}`,
+          type: 'assistant',
+          status: build.status,
+          content: build.status === 'success' ? "Here's your design!" : build.error_message,
+          timestamp: new Date(build.completed_at || build.created_at),
+          result: build.status === 'success' ? {
+            design: build.design_data,
+            files: build.files,
+            component_models: build.component_models,
+            isAssembly: build.is_assembly
+          } : null
+        }));
+
+        setMessages([...formattedMessages, ...buildMessages]);
+      } else {
+        setMessages(formattedMessages);
+      }
+
+      setShowProjects(false);
+    } catch (error) {
+      console.error('Failed to load project:', error);
+    }
+  };
+
+  const handleDeleteProject = async (projectId) => {
+    if (!window.confirm('Are you sure you want to delete this project?')) {
+      return;
+    }
+
+    try {
+      await deleteProject(projectId);
+      await loadProjects();
+
+      if (currentProjectId === projectId) {
+        setCurrentProjectId(null);
+        setMessages([]);
+        setCurrentDesign(null);
+        setResult(null);
+        setStlUrl(null);
+        setAssemblyFiles(null);
+      }
+    } catch (error) {
+      console.error('Failed to delete project:', error);
+      alert('Failed to delete project');
+    }
+  };
+
+  const startNewProject = () => {
+    setCurrentProjectId(null);
+    setMessages([]);
+    setCurrentDesign(null);
+    setResult(null);
+    setStlUrl(null);
+    setAssemblyFiles(null);
+    setPcbComponentUrl(null);
+    setShowProjects(false);
+  };
+
   const handleMouseDown = (e) => {
     setIsDragging(true);
     e.preventDefault();
   };
 
-  const handleMouseMove = (e) => {
+  const handleMouseMove = useCallback((e) => {
     if (!isDragging) return;
-    
+
     const windowWidth = window.innerWidth;
     const newWidth = (e.clientX / windowWidth) * 100;
-    
-    // Constrain between 20% and 80%
+
     if (newWidth >= 20 && newWidth <= 80) {
       setChatWidth(newWidth);
     }
-  };
+  }, [isDragging]);
 
-  const handleMouseUp = () => {
+  const handleMouseUp = useCallback(() => {
     setIsDragging(false);
-  };
+  }, []);
 
   useEffect(() => {
     if (isDragging) {
@@ -56,7 +178,7 @@ function App() {
         document.removeEventListener('mouseup', handleMouseUp);
       };
     }
-  }, [isDragging]);
+  }, [isDragging, handleMouseMove, handleMouseUp]);
 
   const handleBuild = async (prompt) => {
     const userMessage = {
@@ -79,11 +201,14 @@ function App() {
     setMessages(prev => [...prev, buildingMessage]);
 
     try {
-      const buildResult = await buildProduct(prompt, currentDesign);
+      const buildResult = await buildProduct(prompt, currentDesign, currentProjectId);
       setResult(buildResult);
       setCurrentDesign(buildResult.design);
+      setCurrentProjectId(buildResult.projectId);
       setAiModel(prev => buildResult.aiModel || prev);
       setStatus('success');
+
+      await loadProjects();
 
       // Handle assembly vs single-part files
       if (buildResult.isAssembly && Array.isArray(buildResult.files)) {
@@ -156,6 +281,22 @@ function App() {
           <span className="header-subtitle">AI Design Assistant</span>
         </div>
         <div className="header-right">
+          <button
+            className="projects-btn"
+            onClick={() => setShowProjects(!showProjects)}
+            title="View projects"
+          >
+            📁 Projects
+          </button>
+          {currentProjectId && (
+            <button
+              className="new-project-btn"
+              onClick={startNewProject}
+              title="Start new project"
+            >
+              ✨ New
+            </button>
+          )}
           <div className="model-status" title="Active AI planning model">
             <span className="model-label">AI Model</span>
             <span className="model-value">{aiModel}</span>
@@ -196,6 +337,47 @@ function App() {
           )}
         </div>
       </header>
+
+      {showProjects && (
+        <div className="projects-sidebar">
+          <div className="projects-header">
+            <h3>Projects</h3>
+            <button onClick={() => setShowProjects(false)} className="close-btn">×</button>
+          </div>
+          <div className="projects-list">
+            {projects.length === 0 ? (
+              <div className="no-projects">No projects yet</div>
+            ) : (
+              projects.map(project => (
+                <div
+                  key={project.id}
+                  className={`project-item ${currentProjectId === project.id ? 'active' : ''}`}
+                >
+                  <div
+                    className="project-info"
+                    onClick={() => loadProject(project.id)}
+                  >
+                    <div className="project-name">{project.name}</div>
+                    <div className="project-date">
+                      {new Date(project.updated_at).toLocaleDateString()}
+                    </div>
+                  </div>
+                  <button
+                    className="delete-project-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteProject(project.id);
+                    }}
+                    title="Delete project"
+                  >
+                    🗑️
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
 
       <main style={{ gridTemplateColumns: `${chatWidth}% 8px ${100 - chatWidth}%` }}>
         <div className="chat-container">

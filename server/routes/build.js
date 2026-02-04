@@ -3,6 +3,7 @@ const path = require('path');
 const router = express.Router();
 const orchestrator = require('../services/orchestrator');
 const aiPlanner = require('../services/aiPlanner');
+const db = require('../services/database');
 const MODEL_NAME = process.env.AI_MODEL_NAME || 'GPT-5.1-Codex';
 
 // POST /api/chat - Conversational mode
@@ -59,19 +60,19 @@ router.post('/chat', async (req, res) => {
 // POST /api/build - Main build endpoint
 router.post('/build', async (req, res) => {
   try {
-    const { prompt, previousDesign } = req.body;
+    const { prompt, previousDesign, projectId } = req.body;
 
     if (!prompt || typeof prompt !== 'string') {
-      return res.status(400).json({ 
-        error: 'Invalid request', 
-        message: 'Prompt is required and must be a string' 
+      return res.status(400).json({
+        error: 'Invalid request',
+        message: 'Prompt is required and must be a string'
       });
     }
 
     if (prompt.trim().length < 10) {
-      return res.status(400).json({ 
-        error: 'Invalid request', 
-        message: 'Prompt is too short. Please provide more details (at least 10 characters).' 
+      return res.status(400).json({
+        error: 'Invalid request',
+        message: 'Prompt is too short. Please provide more details (at least 10 characters).'
       });
     }
 
@@ -80,8 +81,47 @@ router.post('/build', async (req, res) => {
       console.log('🔄 Modifying existing design');
     }
 
-    // Orchestrate the build process (pass previous design if available)
-    const result = await orchestrator.buildProduct(prompt, previousDesign);
+    let currentProjectId = projectId;
+    if (!currentProjectId) {
+      const project = await db.createProject(`Project - ${prompt.substring(0, 30)}`);
+      currentProjectId = project.id;
+      console.log(`📦 Created new project: ${currentProjectId}`);
+    }
+
+    await db.createMessage({
+      project_id: currentProjectId,
+      type: 'user',
+      content: prompt
+    });
+
+    const build = await db.createBuild({
+      project_id: currentProjectId,
+      prompt,
+      status: 'building'
+    });
+
+    try {
+      const result = await orchestrator.buildProduct(prompt, previousDesign);
+
+      await db.updateBuild(build.id, {
+        status: 'success',
+        completed_at: new Date().toISOString(),
+        design_data: result.designData,
+        files: result.files,
+        component_models: result.component_models,
+        feedback: {
+          engine: result.engineFeedback || [],
+          compatibility: result.compatibilityChecks || []
+        },
+        ai_model: result.aiModel,
+        is_assembly: result.files?.cad?.isAssembly || false,
+        assembly_info: result.files?.cad?.assemblyInfo || null
+      });
+
+      await db.updateProject(currentProjectId, {
+        design_data: result.designData,
+        status: 'completed'
+      });
     
     // Log success metrics
     console.log('\n📊 Build Metrics:');
@@ -150,31 +190,46 @@ router.post('/build', async (req, res) => {
       console.log(`   - Files: ${JSON.stringify(filesResponse, null, 2)}`);
     }
 
-    res.json({
-      success: true,
-      buildId: result.buildId,
-      aiModel: result.aiModel || MODEL_NAME,
-      design: result.designData,
-      reasoning: result.reasoning,
-      isAssembly: isAssembly,
-      files: filesResponse,
-      assemblyInfo: assemblyInfo,
-      component_models: result.component_models || null,
-      feedback: {
-        engine: result.engineFeedback || [],
-        compatibility: result.compatibilityChecks || []
-      },
-      metrics: {
-        hasWarnings: (result.engineFeedback?.length > 0) || (result.compatibilityChecks?.length > 0),
-        totalFeedback: (result.engineFeedback?.length || 0) + (result.compatibilityChecks?.length || 0)
-      }
-    });
+      res.json({
+        success: true,
+        buildId: result.buildId,
+        projectId: currentProjectId,
+        aiModel: result.aiModel || MODEL_NAME,
+        design: result.designData,
+        reasoning: result.reasoning,
+        isAssembly: isAssembly,
+        files: filesResponse,
+        assemblyInfo: assemblyInfo,
+        component_models: result.component_models || null,
+        feedback: {
+          engine: result.engineFeedback || [],
+          compatibility: result.compatibilityChecks || []
+        },
+        metrics: {
+          hasWarnings: (result.engineFeedback?.length > 0) || (result.compatibilityChecks?.length > 0),
+          totalFeedback: (result.engineFeedback?.length || 0) + (result.compatibilityChecks?.length || 0)
+        }
+      });
+
+    } catch (buildError) {
+      await db.updateBuild(build.id, {
+        status: 'error',
+        completed_at: new Date().toISOString(),
+        error_message: buildError.message
+      });
+
+      await db.updateProject(currentProjectId, {
+        status: 'error'
+      });
+
+      throw buildError;
+    }
 
   } catch (error) {
     console.error('❌ Build error:', error);
     const isDev = process.env.NODE_ENV !== 'production';
-    res.status(500).json({ 
-      error: 'Build failed', 
+    res.status(500).json({
+      error: 'Build failed',
       message: error.message,
       ...(isDev && { details: error.stack })
     });
@@ -182,13 +237,111 @@ router.post('/build', async (req, res) => {
 });
 
 // GET /api/build/:buildId - Get build status/details
-router.get('/build/:buildId', (req, res) => {
-  // TODO: Implement build status tracking
-  res.json({ 
-    buildId: req.params.buildId, 
-    status: 'completed',
-    message: 'Status endpoint not yet implemented' 
-  });
+router.get('/build/:buildId', async (req, res) => {
+  try {
+    const build = await db.getBuild(req.params.buildId);
+
+    if (!build) {
+      return res.status(404).json({
+        error: 'Build not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      build
+    });
+  } catch (error) {
+    console.error('❌ Error fetching build:', error);
+    res.status(500).json({
+      error: 'Failed to fetch build',
+      message: error.message
+    });
+  }
+});
+
+// GET /api/projects - Get all projects
+router.get('/projects', async (req, res) => {
+  try {
+    const projects = await db.getAllProjects();
+
+    res.json({
+      success: true,
+      projects
+    });
+  } catch (error) {
+    console.error('❌ Error fetching projects:', error);
+    res.status(500).json({
+      error: 'Failed to fetch projects',
+      message: error.message
+    });
+  }
+});
+
+// GET /api/projects/:projectId - Get project details with builds and messages
+router.get('/projects/:projectId', async (req, res) => {
+  try {
+    const project = await db.getProject(req.params.projectId);
+
+    if (!project) {
+      return res.status(404).json({
+        error: 'Project not found'
+      });
+    }
+
+    const builds = await db.getProjectBuilds(req.params.projectId);
+    const messages = await db.getProjectMessages(req.params.projectId);
+
+    res.json({
+      success: true,
+      project,
+      builds,
+      messages
+    });
+  } catch (error) {
+    console.error('❌ Error fetching project:', error);
+    res.status(500).json({
+      error: 'Failed to fetch project',
+      message: error.message
+    });
+  }
+});
+
+// POST /api/projects - Create a new project
+router.post('/projects', async (req, res) => {
+  try {
+    const { name } = req.body;
+    const project = await db.createProject(name || 'Untitled Project');
+
+    res.json({
+      success: true,
+      project
+    });
+  } catch (error) {
+    console.error('❌ Error creating project:', error);
+    res.status(500).json({
+      error: 'Failed to create project',
+      message: error.message
+    });
+  }
+});
+
+// DELETE /api/projects/:projectId - Delete a project
+router.delete('/projects/:projectId', async (req, res) => {
+  try {
+    await db.deleteProject(req.params.projectId);
+
+    res.json({
+      success: true,
+      message: 'Project deleted successfully'
+    });
+  } catch (error) {
+    console.error('❌ Error deleting project:', error);
+    res.status(500).json({
+      error: 'Failed to delete project',
+      message: error.message
+    });
+  }
 });
 
 module.exports = router;

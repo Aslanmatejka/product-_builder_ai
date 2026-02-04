@@ -14,18 +14,26 @@
     "prepare:mvp": "node prepare-mvp.js",
     "verify:mvp": "node verify-mvp.js"
   },
-  "keywords": ["CAD", "PCB", "AI", "manufacturing", "FreeCAD", "KiCad"],
+  "keywords": [
+    "CAD",
+    "PCB",
+    "AI",
+    "manufacturing",
+    "FreeCAD",
+    "KiCad"
+  ],
   "author": "",
   "license": "MIT",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.20.0",
-    "express": "^4.18.2",
+    "@supabase/supabase-js": "^2.94.0",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
+    "express": "^4.18.2",
     "uuid": "^9.0.1"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1",
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "nodemon": "^3.0.1"
   }
 }
