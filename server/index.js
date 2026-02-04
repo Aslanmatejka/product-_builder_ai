@@ -103,11 +103,14 @@ app.use('/exports', express.static(exportsPath, {
   }
 }));
 
-// Serve React app static files
+// Serve React app static files (but not for API or export routes)
 const clientBuildPath = path.join(__dirname, '..', 'client', 'build');
+console.log(`📱 Serving React app from: ${clientBuildPath}`);
+
 app.use(express.static(clientBuildPath));
 
-// Handle React routing - serve index.html for all non-API routes
+// Handle React routing - serve index.html for all non-API, non-export routes
+// This MUST come after all API routes and static file routes
 app.get('*', (req, res) => {
   res.sendFile(path.join(clientBuildPath, 'index.html'));
 });
@@ -115,9 +118,9 @@ app.get('*', (req, res) => {
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).json({ 
-    error: 'Internal server error', 
-    message: err.message 
+  res.status(500).json({
+    error: 'Internal server error',
+    message: err.message
   });
 });
 
